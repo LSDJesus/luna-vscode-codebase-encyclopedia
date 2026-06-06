@@ -2,7 +2,7 @@
   "name": "luna-codebase-encyclopedia",
   "displayName": "LUNA Codebase Encyclopedia",
   "description": "Agent-First Context API: Generate structured summaries for instant Copilot queries + Educational code breakdowns for learning",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "publisher": "ai-evolution",
   "icon": "resources/icon.png",
   "repository": {
@@ -69,6 +69,16 @@
         "command": "luna-encyclopedia.previewFiles",
         "title": "LUNA: Preview Files to Summarize",
         "icon": "$(preview)"
+      },
+      {
+        "command": "luna-encyclopedia.selectSummaryModel",
+        "title": "LUNA: Select Summary Model",
+        "icon": "$(hubot)"
+      },
+      {
+        "command": "luna-encyclopedia.showAvailableModels",
+        "title": "LUNA: Show Available Chat Models",
+        "icon": "$(list-unordered)"
       },
       {
         "command": "luna-encyclopedia.reregisterMCP",
@@ -174,54 +184,20 @@
     "configuration": {
       "title": "LUNA Encyclopedia",
       "properties": {
+        "luna-encyclopedia.modelVendor": {
+          "type": "string",
+          "default": "copilot",
+          "markdownDescription": "Vendor to use when selecting a chat model for LUNA summaries and analysis.\n\nExamples:\n- `copilot` for GitHub Copilot models\n- another provider ID exposed by an installed VS Code language model extension\n\nUse `LUNA: Show Available Chat Models` to inspect the live vendors and model IDs available on this machine."
+        },
+        "luna-encyclopedia.modelId": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Exact chat model ID to use for LUNA summaries and analysis. When set, this overrides the family setting below.\n\nUse `LUNA: Select Summary Model` to pick from the models that are actually available right now."
+        },
         "luna-encyclopedia.copilotModel": {
           "type": "string",
           "default": "gpt-4o",
-          "enum": [
-            "gpt-4o",
-            "gpt-4.1",
-            "gpt-5-mini",
-            "raptor-mini",
-            "claude-sonnet-4.5",
-            "claude-sonnet-4",
-            "claude-haiku-4.5",
-            "gemini-3-flash",
-            "gemini-3-pro",
-            "gemini-2.5-pro",
-            "gpt-5",
-            "gpt-5.1",
-            "gpt-5.2",
-            "gpt-5-codex",
-            "gpt-5.1-codex",
-            "gpt-5.1-codex-mini",
-            "gpt-5.1-codex-max",
-            "claude-opus-4.5",
-            "claude-opus-4.1",
-            "grok-code-fast-1"
-          ],
-          "enumDescriptions": [
-            "GPT-4o - FREE, great for summaries (recommended)",
-            "GPT-4.1 - FREE, previous generation",
-            "GPT-5 Mini - FREE, fast and efficient for summaries",
-            "Raptor Mini - FREE, Microsoft's efficient model",
-            "Claude Sonnet 4.5 - PAID (1x), excellent reasoning",
-            "Claude Sonnet 4 - PAID (1x), strong performance",
-            "Claude Haiku 4.5 - PAID (0.33x), fast and cheap",
-            "Gemini 3 Flash - PAID (0.33x), Google's fast model",
-            "Gemini 3 Pro - PAID (1x), Google's capable model",
-            "Gemini 2.5 Pro - PAID (1x), Google's advanced model",
-            "GPT-5 - PAID (1x), OpenAI's latest",
-            "GPT-5.1 - PAID (1x), enhanced GPT-5",
-            "GPT-5.2 - PAID (1x), newest GPT version",
-            "GPT-5 Codex - PAID (1x), code-specialized",
-            "GPT-5.1 Codex - PAID (1x), enhanced code model",
-            "GPT-5.1 Codex Mini - PAID (0.33x), efficient code model",
-            "GPT-5.1 Codex Max - PAID (1x), maximum capability code model",
-            "Claude Opus 4.5 - PAID (3x), most capable Claude",
-            "Claude Opus 4.1 - PAID (10x), very expensive but powerful",
-            "Grok Code Fast 1 - PAID (0.25x), X.AI's fast code model"
-          ],
-          "markdownDescription": "Which Copilot model to use for generating code summaries.\n\n**FREE models** (good choices):\n- `gpt-4o` - Recommended for quality\n- `gpt-5-mini` - Recommended for speed\n- `raptor-mini` - Microsoft's efficient option\n\n**PAID models** require Copilot subscription and consume multiplier credits."
+          "markdownDescription": "Fallback model family to use for LUNA summaries and analysis. This is used when `luna-encyclopedia.modelId` is empty.\n\nVS Code extension settings cannot populate this list dynamically, so use `LUNA: Select Summary Model` to choose from the models that are actually available right now."
         },
         "luna-encyclopedia.fileTypesToInclude": {
           "type": "array",
@@ -306,7 +282,7 @@
           "type": "boolean",
           "default": true,
           "description": "Use Copilot to review and verify deterministic analysis results",
-          "markdownDescription": "**Copilot Quality Assurance** (Recommended)\n\nWhen enabled:\n- Dead code analysis is verified by Copilot (reduces false positives)\n- Complexity scores are validated against actual code patterns\n- Component categorization is reviewed for accuracy\n- Staleness detection is enhanced with semantic change analysis\n\n**Benefits**:\n- Fewer false positive \"dead code\" alerts\n- More accurate complexity recommendations\n- Framework-aware analysis (ComfyUI, Django, FastAPI, etc.)\n\n**Cost**: Additional Copilot API calls after initial analysis\n\n**Default: Enabled**"
+          "markdownDescription": "**Copilot Quality Assurance** (Recommended)\n\nWhen enabled:\n- Dead code analysis is verified by Copilot (reduces false positives)\n- Complexity scores are validated against actual code patterns\n- Component categorization is reviewed for accuracy\n- Staleness detection is enhanced with semantic change analysis\n\n**Benefits**:\n- Fewer false positive \"dead code\" alerts\n- More accurate complexity recommendations\n- Framework-aware analysis (ComfyUI, Django, FastAPI, etc.)\n\n**Note**: This performs additional language-model requests after initial analysis.\n\n**Default: Enabled**"
         },
         "luna-encyclopedia.maxFileSize": {
           "type": "number",
@@ -342,23 +318,7 @@
         "luna-encyclopedia.defaultWorkerModel": {
           "type": "string",
           "default": "gpt-4o",
-          "enum": [
-            "gpt-4o",
-            "gpt-4.1",
-            "gpt-5-mini",
-            "raptor-mini",
-            "claude-haiku-4.5",
-            "gemini-3-flash"
-          ],
-          "enumDescriptions": [
-            "GPT-4o - FREE, recommended default for workers",
-            "GPT-4.1 - FREE, solid performance",
-            "GPT-5 Mini - FREE, fast for simple tasks",
-            "Raptor Mini - FREE, Microsoft's efficient model",
-            "Claude Haiku 4.5 - PAID (0.33x), fastest Claude",
-            "Gemini 3 Flash - PAID (0.33x), Google's fast model"
-          ],
-          "markdownDescription": "Default model for background worker agents spawned by Copilot Chat.\n\n**Recommended: gpt-4o** (FREE, good quality)\n\nWorker agents handle delegated tasks like:\n- Documentation generation\n- Test creation\n- Code search and summarization\n- Repetitive file edits\n\nUse FREE models to minimize cost while main agent (you) uses premium model."
+          "markdownDescription": "Default model token for background worker agents. This can be a model family (for example `gpt-4o`) or an exact model ID.\n\nWorker selection uses your configured provider settings and then resolves against models currently available in VS Code.\n\nUse `LUNA: Show Available Chat Models` to inspect live model IDs and families."
         },
         "luna-encyclopedia.workerConcurrencyLimit": {
           "type": "number",

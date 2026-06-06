@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PromptManager } from './promptManager';
+import { requireConfiguredChatModel } from './modelSelection';
 
 type VerbosityLevel = 'beginner' | 'intermediate' | 'expert';
 
@@ -36,24 +37,14 @@ export class CodeBreakdownGenerator {
     }
 
     /**
-     * Initialize the Copilot model
+     * Initialize the configured language model
      */
     private async ensureModel(): Promise<vscode.LanguageModelChat | null> {
         if (this.model) {
             return this.model;
         }
 
-        const config = vscode.workspace.getConfiguration('luna-encyclopedia');
-        const modelFamily = config.get<string>('copilotModel', 'gpt-4o');
-        
-        const models = await vscode.lm.selectChatModels({
-            vendor: 'copilot',
-            family: modelFamily
-        });
-
-        if (models.length > 0) {
-            this.model = models[0];
-        }
+        this.model = await requireConfiguredChatModel();
 
         return this.model;
     }
@@ -68,7 +59,7 @@ export class CodeBreakdownGenerator {
     ): Promise<string> {
         const model = await this.ensureModel();
         if (!model) {
-            throw new Error('No Copilot model available');
+            throw new Error('No language model available');
         }
 
         const content = fs.readFileSync(filePath, 'utf-8');

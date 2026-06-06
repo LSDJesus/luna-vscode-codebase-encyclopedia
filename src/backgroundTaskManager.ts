@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
+import { getConfiguredModelSelection } from './modelSelection';
 
 export interface BackgroundTask {
     id: string;
@@ -144,21 +145,44 @@ export class BackgroundTaskManager {
     }
 
     private async runWorkerAgent(task: BackgroundTask): Promise<void> {
-        // Select the appropriate model
-        const models = await vscode.lm.selectChatModels({
-            vendor: 'copilot',
-            family: task.model
-        });
-        
-        if (models.length === 0) {
-            throw new Error(`Model ${task.model} not available. Check GitHub Copilot status.`);
+        // Resolve worker model using configured provider first, then fallback selector.
+        const configured = getConfiguredModelSelection();
+        const selectors: vscode.LanguageModelChatSelector[] = [];
+
+        if (task.model) {
+            if (task.model.includes('/')) {
+                const [vendor, ...rest] = task.model.split('/');
+                const modelId = rest.join('/');
+                selectors.push({ vendor, id: modelId });
+            } else {
+                if (configured.vendor) {
+                    selectors.push({ vendor: configured.vendor, id: task.model });
+                    selectors.push({ vendor: configured.vendor, family: task.model });
+                }
+                selectors.push({ id: task.model });
+                selectors.push({ family: task.model });
+            }
+        } else {
+            selectors.push(configured.selector);
         }
 
-        const model = models[0];
+        let selectedModel: vscode.LanguageModelChat | undefined;
+        for (const selector of selectors) {
+            const models = await vscode.lm.selectChatModels(selector);
+            if (models.length > 0) {
+                selectedModel = models[0];
+                break;
+            }
+        }
+
+        if (!selectedModel) {
+            const requested = task.model || configured.label;
+            throw new Error(`Worker model "${requested}" is not available. Use "LUNA: Select Summary Model" or update LUNA model settings.`);
+        }
         
         // Always try to use tool-calling mode first (models support it automatically)
         this.log(`Worker ${task.id}: Using agent mode with tool access`);
-        await this.runWorkerWithTools(task, model);
+        await this.runWorkerWithTools(task, selectedModel);
     }
 
     private async runWorkerWithTools(task: BackgroundTask, model: vscode.LanguageModelChat): Promise<void> {

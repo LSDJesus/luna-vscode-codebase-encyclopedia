@@ -356,7 +356,7 @@ const tools: Tool[] = [
   },
   {
     name: 'spawn_worker_agent',
-    description: 'Spawn an async AI worker to handle a subtask (documentation, analysis, testing, etc.). Worker runs in Agent Mode with full tool access. Returns task ID immediately. Use this to parallelize grunt work and speed up complex multi-step requests. Workers use cheaper models (Haiku @ 0.33x or free models) for cost optimization.',
+    description: 'Spawn an async AI worker to handle a subtask (documentation, analysis, testing, etc.). Worker runs in Agent Mode with full tool access. Returns task ID immediately. Use this to parallelize grunt work and speed up complex multi-step requests.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -377,7 +377,7 @@ const tools: Tool[] = [
         model: {
           type: 'string',
           enum: ['gpt-4o', 'gpt-4.1', 'gpt-5-mini', 'raptor-mini', 'claude-3.5-haiku', 'o1-preview', 'o1-mini'],
-          description: 'Copilot model to use. Recommended: "gpt-4o" or "gpt-4.1" (FREE), "claude-3.5-haiku" (0.33x cost). Default from settings.',
+          description: 'Language model to use. Default comes from settings.',
         },
         output_file: {
           type: 'string',
@@ -469,7 +469,7 @@ const tools: Tool[] = [
         model: {
           type: 'string',
           enum: ['gpt-4o', 'gpt-4.1', 'gpt-5-mini', 'claude-3.5-haiku'],
-          description: 'Model for review agent. Recommended: "gpt-4o" (FREE). Default from settings.',
+          description: 'Model for review agent. Default comes from settings.',
         },
       },
       required: ['workspace_path', 'file_path'],

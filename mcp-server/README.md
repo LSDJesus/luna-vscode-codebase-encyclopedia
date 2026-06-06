@@ -89,7 +89,7 @@ MCP Server
 Cached Summaries (docs/codebase/)
 ```
 
-**Key insight**: The MCP server can request summary generation from Copilot Chat API (free/cheap models) instead of burning the main AI's context on reading source files.
+**Key insight**: The MCP server can request summary generation from Copilot Chat API instead of burning the main AI's context on reading source files.
 
 ## Development
 

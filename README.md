@@ -123,7 +123,7 @@ LUNA now features **fully autonomous worker agents** with complete tool access a
 - Workers run multi-turn conversations (up to 20 turns) to complete complex tasks autonomously
 - Workers see results of their actions and can adapt, retry, or fix issues
 - **File creation works flawlessly** via intelligent JSON output parsing
-- All while using **FREE models** (gpt-4o, gpt-4.1, raptor-mini)!
+- Works with models available from your configured provider in VS Code
 
 **What Workers Can Do (Autonomously!):**
 - **Read files** - Workers can examine any code they need
@@ -136,7 +136,7 @@ LUNA now features **fully autonomous worker agents** with complete tool access a
 
 **Key Benefits:**
 - **True autonomy** - Workers complete complex tasks without supervision
-- **Zero cost** - FREE models (gpt-4o) with full agent capabilities
+- **No API key handling in LUNA** - model auth and billing stay with your provider
 - **Production-proven** - Tested and working with complex workflows
 - **Multi-turn reasoning** - Workers can make 20+ sequential decisions
 - **Smart file creation** - JSON blocks with automatic newline/escape handling
@@ -170,7 +170,7 @@ const task = await spawn_worker_agent({
     1. Call mcp_lunaencyclope_get_component_map
     2. Format as markdown
     3. Return JSON block for file creation`,
-    model: 'gpt-4o', // FREE!
+    model: 'gpt-4o',
     auto_execute: true
 });
 
@@ -180,7 +180,7 @@ const task = await spawn_worker_agent({
 // - Returns JSON block with markdown content
 // - Extension parses and creates docs/ARCHITECTURE_SUMMARY.md
 // 
-// Total cost: $0 | Total time: 10-30 seconds | Result: Professional documentation
+// Typical completion: 10-30 seconds | Result: Professional documentation
 ```
 
 ## MCP Tools for AI Agents
@@ -215,7 +215,7 @@ LUNA provides **18 tools** for Copilot Agent Mode (auto-registered on activation
 - `#list_stale_summaries` - Check which files need re-summarization based on git history
 
 **Worker Agent Tools:**
-- `#spawn_worker_agent` - Delegate complex tasks to autonomous background AI workers (FREE models!)
+- `#spawn_worker_agent` - Delegate complex tasks to autonomous background AI workers
 - `#check_worker_status` - Poll for worker task completion without blocking
 - `#wait_for_workers` - Block until workers finish (with timeout)
 
@@ -320,7 +320,7 @@ Right-click file → "LUNA: Explain This Code"
 Perfect for onboarding new developers or learning unfamiliar code!
 
 ### AI Code Review (NEW - v1.1.25)
-Review file changes for bugs, logic errors, performance issues, security vulnerabilities, and unintended side effects. Uses the same FREE model from your LUNA settings (gpt-4o by default) -- zero premium requests consumed.
+Review file changes for bugs, logic errors, performance issues, security vulnerabilities, and unintended side effects. Uses the same model configured in your LUNA settings.
 
 **Two ways to use it:**
 
@@ -331,10 +331,10 @@ Right-click any file → "LUNA: Review Changes in This File"
 Command Palette (Ctrl+Shift+P) → "LUNA: Review Changes in This File"
 ```
 - Prompts you to select a review focus (All, Bugs, Performance, Security, Style)
-- Uses the model from Settings > LUNA > Copilot Model (default: gpt-4o, FREE)
+- Uses the model from Settings > LUNA model settings
 - Shows progress notification with cancel support
 - Opens review results in an untitled markdown tab (close it when done, nothing saved to disk)
-- No files created, no clutter, no premium requests
+- No files created and no workspace clutter
 
 **2. MCP Tool (For AI Agents):**
 ```
@@ -362,7 +362,7 @@ Command Palette (Ctrl+Shift+P) → "LUNA: Review Changes in This File"
 - `style` - Readability, naming, DRY violations, maintainability
 
 **Why this matters for AI-assisted development:**
-When AI writes your code, you get a second AI reviewing it -- using a fast, free model that won't eat your premium request quota. The review has full context: the diff, the file, and LUNA's summary of the file's purpose and dependencies.
+When AI writes your code, you get a second AI reviewing it with full context: the diff, the file, and LUNA's summary of the file's purpose and dependencies.
 
 ### Project Health Report (NEW - v1.1.25)
 Get a comprehensive assessment of your entire project's health in one command. Reads all existing LUNA analysis data (complexity heatmap, dead code, component map, dependency graph, QA report) and produces an AI-generated health report.
@@ -380,7 +380,7 @@ Command Palette (Ctrl+Shift+P) → "LUNA: Project Health Report"
 - **Prioritized Recommendations** - Numbered list, most important first
 
 **Key details:**
-- Uses your configured LUNA model (default: gpt-4o, FREE)
+- Uses your configured LUNA model
 - Reads all existing `.codebase/` analysis files -- no extra generation needed
 - Auto-detects circular dependencies from the dependency graph
 - Results open in an untitled tab -- close when done, nothing saved to disk
@@ -408,7 +408,7 @@ Right-click any file → "LUNA: Suggest Refactorings"
 - Estimated complexity score after refactoring
 
 **Key details:**
-- Uses your configured LUNA model (default: gpt-4o, FREE)
+- Uses your configured LUNA model
 - Reads the real source code + LUNA summary for full context
 - Focuses on structural improvements, not superficial stuff like variable naming
 - Results open in an untitled tab -- close when done
@@ -511,7 +511,9 @@ Copy to `.codebase/.luna-template.json` to enable.
 Configure LUNA in VS Code Settings → Extensions → LUNA Encyclopedia:
 
 **Analysis Settings:**
-- **Copilot Model**: Choose which model to use (default: gpt-4o - FREE)
+- **Model Vendor**: Choose provider vendor (default: copilot)
+- **Model ID**: Optional exact model ID override
+- **Fallback Model Family**: Family used when model ID is empty (default: gpt-4o)
 - **Concurrent Workers**: Parallel analysis (1-20, default: 5)
 - **Max File Size**: Skip files larger than this (default: 500KB)
 - **Enable Copilot QA**: AI reviews deterministic analysis (default: ON)
@@ -527,22 +529,12 @@ Configure LUNA in VS Code Settings → Extensions → LUNA Encyclopedia:
 - **Branch Aware Summaries**: Separate summaries per git branch
 - **File Types**: Which extensions to include/exclude
 
-## Cost
+## Model Availability and Billing
 
-**Free Models (Default):**
-- **gpt-4o** - Standard Copilot model (recommended, FREE)
-- **gpt-4.1** - Newer variant (FREE)
-- **gpt-5-mini** - Lightweight option (FREE)
-- **raptor-mini** - Fast analysis (FREE)
-
-**Optional Premium Models:**
-- **Claude Sonnet 4/4.5** - High accuracy
-- **Claude Haiku 4.5** - Fastest responses
-- **Gemini 3 Flash/Pro** - Google models
-- **GPT-5 series** - Latest OpenAI models
-- **Grok Code Fast** - Very fast analysis
-
-**Recommendation:** Stick with `gpt-4o` (default) for best cost-free experience!
+- LUNA lists models exposed by VS Code language model providers at runtime.
+- Pricing or premium request details are not exposed through the VS Code LM API.
+- Billing is determined by your selected provider and account plan.
+- Use `LUNA: Select Summary Model` to choose from currently available models.
 
 ---
 
@@ -637,7 +629,7 @@ LUNA is **production-ready** (v1.2.0) with all major features implemented and te
 - File creation via intelligent JSON parsing
 - Automatic escape sequence handling (`\n`, `\t`, `\r`, `\\`)
 - Parallel task delegation for massive speedup
-- FREE model support (gpt-4o, gpt-4.1, raptor-mini, gpt-5-mini)
+- Flexible model support via VS Code language model providers
 - Production-tested with complex documentation tasks
 
 **Chat Session Monitor (v1.2.0):**
@@ -662,9 +654,9 @@ LUNA is **production-ready** (v1.2.0) with all major features implemented and te
 **Backup & Digest Commands** - `LUNA: Backup All Chat Sessions` (force full backup) and `LUNA: Chat Activity Digest` (view activity summary for last 24h/7d/30d/all time).  
 
 **Previously in v1.1.25:**  
-**Project Health Report** - `LUNA: Project Health Report` generates a comprehensive project assessment with health score (1-10), critical issues, technical debt, and prioritized recommendations. Uses FREE model.  
+**Project Health Report** - `LUNA: Project Health Report` generates a comprehensive project assessment with health score (1-10), critical issues, technical debt, and prioritized recommendations.  
 **Suggest Refactorings** - `LUNA: Suggest Refactorings` (command palette + right-click). Auto-selects highest-complexity files. Concrete refactoring plans with specific functions, quick wins vs structural changes.  
-**AI Code Review** - `LUNA: Review Changes in This File` + `#review_file_changes` MCP tool. Reviews git diffs for bugs, performance, security, and style. Zero premium requests.  
+**AI Code Review** - `LUNA: Review Changes in This File` + `#review_file_changes` MCP tool. Reviews git diffs for bugs, performance, security, and style.  
 **Update Stale now regenerates meta** - Running "Update Stale Summaries" always regenerates meta-analysis (complexity, dead code, dependencies, components) even when no file summaries are stale.  
 
 **Previously in v1.1.23:**
@@ -678,7 +670,7 @@ LUNA is **production-ready** (v1.2.0) with all major features implemented and te
 - **Worker Agent System - PRODUCTION READY** - Fully autonomous agents with complete tool access
 - **Smart File Creation** - JSON-based output with automatic escape sequence handling
 - **Multi-turn Tool Loop** - Workers make 20+ sequential decisions and adapt
-- **Parallel Task Delegation** - Spawn multiple workers with FREE models
+- **Parallel Task Delegation** - Spawn multiple workers for parallel execution
 
 ## License
 

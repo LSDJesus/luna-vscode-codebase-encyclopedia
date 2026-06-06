@@ -13,6 +13,13 @@ import { PromptManager } from './promptManager';
 import { BackgroundTaskManager } from './backgroundTaskManager';
 import { ExtensionBridge } from './extensionBridge';
 import { ChatSessionMonitor } from './chatSessionMonitor';
+import {
+    formatLanguageModel,
+    getConfiguredModelSelection,
+    listAvailableChatModels,
+    requireConfiguredChatModel,
+    saveSelectedChatModel
+} from './modelSelection';
 
 let summaryTreeProvider: SummaryTreeProvider;
 let gitCommitWatcher: GitCommitWatcher | null = null;
@@ -193,6 +200,71 @@ export async function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage('✅ Preview generated! Check preview-included-files.txt');
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to generate preview: ${error}`);
+        }
+    });
+
+    const selectSummaryModelCommand = vscode.commands.registerCommand('luna-encyclopedia.selectSummaryModel', async () => {
+        try {
+            const models = await listAvailableChatModels();
+            if (models.length === 0) {
+                vscode.window.showWarningMessage('No VS Code chat models are currently available. Install or sign into a language model provider first.');
+                return;
+            }
+
+            const currentSelection = getConfiguredModelSelection();
+            const picked = await vscode.window.showQuickPick(
+                models.map(model => ({
+                    label: model.name,
+                    description: `${model.vendor} | family: ${model.family}`,
+                    detail: `id: ${model.id}${currentSelection.id === model.id ? ' | currently selected' : ''}`,
+                    model
+                })),
+                {
+                    title: 'LUNA: Select Summary Model',
+                    placeHolder: 'Choose the live chat model LUNA should use for summaries and analysis',
+                    matchOnDescription: true,
+                    matchOnDetail: true
+                }
+            );
+
+            if (!picked) {
+                return;
+            }
+
+            await saveSelectedChatModel(picked.model);
+            vscode.window.showInformationMessage(`LUNA will use ${formatLanguageModel(picked.model)}.`);
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to select model: ${error}`);
+        }
+    });
+
+    const showAvailableModelsCommand = vscode.commands.registerCommand('luna-encyclopedia.showAvailableModels', async () => {
+        try {
+            const models = await listAvailableChatModels();
+            if (models.length === 0) {
+                vscode.window.showWarningMessage('No VS Code chat models are currently available.');
+                return;
+            }
+
+            const configured = getConfiguredModelSelection();
+            const lines = [
+                '# Available Chat Models',
+                '',
+                `Configured selector: ${configured.label}`,
+                'Pricing details are not exposed by the VS Code LM API.',
+                '',
+                '| Name | Vendor | Family | ID | Version |',
+                '| --- | --- | --- | --- | --- |',
+                ...models.map(model => `| ${model.name} | ${model.vendor} | ${model.family} | ${model.id} | ${model.version || ''} |`)
+            ];
+
+            const doc = await vscode.workspace.openTextDocument({
+                content: lines.join('\n'),
+                language: 'markdown'
+            });
+            await vscode.window.showTextDocument(doc, { preview: false });
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to list available models: ${error}`);
         }
     });
 
@@ -384,21 +456,8 @@ export async function activate(context: vscode.ExtensionContext) {
                 const { execSync } = require('child_process');
                 const fsModule = require('fs');
 
-                // Get the model from LUNA settings (default: gpt-4o, FREE)
-                const config = vscode.workspace.getConfiguration('luna-encyclopedia');
-                const modelFamily = config.get<string>('copilotModel', 'gpt-4o');
-
-                progress.report({ message: `Selecting model: ${modelFamily}...` });
-                const models = await vscode.lm.selectChatModels({
-                    vendor: 'copilot',
-                    family: modelFamily
-                });
-
-                if (models.length === 0) {
-                    vscode.window.showErrorMessage(`Model "${modelFamily}" not available. Check GitHub Copilot status.`);
-                    return;
-                }
-                const model = models[0];
+                progress.report({ message: `Selecting model: ${getConfiguredModelSelection().label}...` });
+                const model = await requireConfiguredChatModel();
 
                 // Read current file content
                 let currentContent = '';
@@ -497,7 +556,7 @@ End with a verdict: APPROVED, NEEDS_CHANGES, or BLOCKED with a brief overall ass
 Be thorough but fair. Only flag real issues.`;
 
                 // Call the model directly using the LM API
-                progress.report({ message: `Reviewing with ${modelFamily}...` });
+                progress.report({ message: `Reviewing with ${model.name}...` });
                 const messages = [
                     vscode.LanguageModelChatMessage.User(reviewPrompt)
                 ];
@@ -526,7 +585,7 @@ Be thorough but fair. Only flag real issues.`;
 
                 // Show results in an untitled document (closes clean, no files on disk)
                 const header = `# Code Review: ${relativePath}\n\n` +
-                    `**Model:** ${modelFamily} (FREE)  \n` +
+                    `**Model:** ${formatLanguageModel(model)}  \n` +
                     `**Focus:** ${selectedFocus.label}  \n` +
                     `**Date:** ${new Date().toLocaleString()}  \n\n---\n\n`;
 
@@ -536,8 +595,8 @@ Be thorough but fair. Only flag real issues.`;
                 });
                 await vscode.window.showTextDocument(doc, { preview: false });
 
-                lunaOutputChannel.appendLine(`[Review] ${relativePath} reviewed with ${modelFamily} (focus: ${selectedFocus.value})`);
-                vscode.window.showInformationMessage(`Review complete for ${fileName} (${modelFamily})`);
+                lunaOutputChannel.appendLine(`[Review] ${relativePath} reviewed with ${model.id} (focus: ${selectedFocus.value})`);
+                vscode.window.showInformationMessage(`Review complete for ${fileName} (${model.name})`);
 
             } catch (error) {
                 if (token.isCancellationRequested) {
@@ -576,16 +635,8 @@ Be thorough but fair. Only flag real issues.`;
             cancellable: true
         }, async (progress, token) => {
             try {
-                const config = vscode.workspace.getConfiguration('luna-encyclopedia');
-                const modelFamily = config.get<string>('copilotModel', 'gpt-4o');
-
-                progress.report({ message: `Selecting model: ${modelFamily}...` });
-                const models = await vscode.lm.selectChatModels({ vendor: 'copilot', family: modelFamily });
-                if (models.length === 0) {
-                    vscode.window.showErrorMessage(`Model "${modelFamily}" not available.`);
-                    return;
-                }
-                const model = models[0];
+                progress.report({ message: `Selecting model: ${getConfiguredModelSelection().label}...` });
+                const model = await requireConfiguredChatModel();
 
                 // Load all available analysis data
                 progress.report({ message: 'Loading analysis data...' });
@@ -783,7 +834,7 @@ Be honest and specific. Don't pad with generic advice. If the codebase is in goo
                 }
 
                 const header = `<!-- Generated by LUNA Codebase Encyclopedia -->\n` +
-                    `<!-- Model: ${modelFamily} (FREE) | Date: ${new Date().toLocaleString()} -->\n\n`;
+                    `<!-- Model: ${model.id} | Date: ${new Date().toLocaleString()} -->\n\n`;
 
                 const doc = await vscode.workspace.openTextDocument({
                     content: header + result,
@@ -791,8 +842,8 @@ Be honest and specific. Don't pad with generic advice. If the codebase is in goo
                 });
                 await vscode.window.showTextDocument(doc, { preview: false });
 
-                lunaOutputChannel.appendLine(`[HealthReport] Generated with ${modelFamily}`);
-                vscode.window.showInformationMessage(`Project Health Report generated (${modelFamily})`);
+                lunaOutputChannel.appendLine(`[HealthReport] Generated with ${model.id}`);
+                vscode.window.showInformationMessage(`Project Health Report generated (${model.name})`);
 
             } catch (error) {
                 if (token.isCancellationRequested) {
@@ -881,16 +932,8 @@ Be honest and specific. Don't pad with generic advice. If the codebase is in goo
             cancellable: true
         }, async (progress, token) => {
             try {
-                const config = vscode.workspace.getConfiguration('luna-encyclopedia');
-                const modelFamily = config.get<string>('copilotModel', 'gpt-4o');
-
-                progress.report({ message: `Selecting model: ${modelFamily}...` });
-                const models = await vscode.lm.selectChatModels({ vendor: 'copilot', family: modelFamily });
-                if (models.length === 0) {
-                    vscode.window.showErrorMessage(`Model "${modelFamily}" not available.`);
-                    return;
-                }
-                const model = models[0];
+                progress.report({ message: `Selecting model: ${getConfiguredModelSelection().label}...` });
+                const model = await requireConfiguredChatModel();
 
                 // Read file contents and LUNA summaries
                 let fileContexts = '';
@@ -973,7 +1016,7 @@ Be specific with function names and line references. Don't suggest renaming vari
                 }
 
                 const header = `# Refactoring Suggestions\n\n` +
-                    `**Model:** ${modelFamily} (FREE)  \n` +
+                    `**Model:** ${formatLanguageModel(model)}  \n` +
                     `**Files Analyzed:** ${targetFiles.map(f => f.file).join(', ')}  \n` +
                     `**Date:** ${new Date().toLocaleString()}  \n\n---\n\n`;
 
@@ -983,7 +1026,7 @@ Be specific with function names and line references. Don't suggest renaming vari
                 });
                 await vscode.window.showTextDocument(doc, { preview: false });
 
-                lunaOutputChannel.appendLine(`[Refactoring] ${targetFiles.length} files analyzed with ${modelFamily}`);
+                lunaOutputChannel.appendLine(`[Refactoring] ${targetFiles.length} files analyzed with ${model.id}`);
                 vscode.window.showInformationMessage(`Refactoring suggestions generated for ${targetFiles.length} file(s)`);
 
             } catch (error) {
@@ -1060,6 +1103,8 @@ Be specific with function names and line references. Don't suggest renaming vari
         summarizeFileCommand,
         previewFilesCommand,
         generateBreakdownCommand,
+        selectSummaryModelCommand,
+        showAvailableModelsCommand,
         reviewFileChangesCommand,
         projectHealthReportCommand,
         suggestRefactoringsCommand,

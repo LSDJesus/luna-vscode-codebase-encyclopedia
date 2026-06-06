@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PromptManager } from './promptManager';
+import { requireConfiguredChatModel } from './modelSelection';
 
 interface QAResult {
     verified: boolean;
@@ -49,24 +50,14 @@ export class QualityAssuranceValidator {
     }
 
     /**
-     * Initialize the Copilot model for QA
+     * Initialize the configured language model for QA
      */
     private async ensureModel(): Promise<vscode.LanguageModelChat | null> {
         if (this.model) {
             return this.model;
         }
 
-        const config = vscode.workspace.getConfiguration('luna-encyclopedia');
-        const modelFamily = config.get<string>('copilotModel', 'gpt-4o');
-        
-        const models = await vscode.lm.selectChatModels({
-            vendor: 'copilot',
-            family: modelFamily
-        });
-
-        if (models.length > 0) {
-            this.model = models[0];
-        }
+        this.model = await requireConfiguredChatModel();
 
         return this.model;
     }
@@ -81,7 +72,7 @@ export class QualityAssuranceValidator {
     ): Promise<DeadCodeQAResult[]> {
         const model = await this.ensureModel();
         if (!model) {
-            console.warn('No Copilot model available for QA');
+            console.warn('No language model available for QA');
             return [];
         }
 
@@ -280,7 +271,7 @@ export class QualityAssuranceValidator {
     ): Promise<QAResult> {
         const model = await this.ensureModel();
         if (!model) {
-            return { verified: false, confidence: 0, issues: ['No Copilot model available'], corrections: {} };
+            return { verified: false, confidence: 0, issues: ['No language model available'], corrections: {} };
         }
 
         progress?.report({ message: 'QA: Validating component categorization...' });

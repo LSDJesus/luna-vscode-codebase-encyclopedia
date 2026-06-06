@@ -14,6 +14,7 @@ import { QualityAssuranceValidator } from './qualityAssuranceValidator';
 import { EnhancedDeadCodeDetector } from './enhancedDeadCodeDetector';
 import { PromptManager } from './promptManager';
 import { APIReferenceGenerator } from './apiReferenceGenerator';
+import { getConfiguredModelSelection } from './modelSelection';
 
 interface FileSummary {
     purpose: string;
@@ -56,13 +57,7 @@ interface FileSummary {
 
 export class CodebaseAnalyzer {
     private getModelSelector(): vscode.LanguageModelChatSelector {
-        const config = vscode.workspace.getConfiguration('luna-encyclopedia');
-        const modelFamily = config.get<string>('copilotModel', 'gpt-4o');
-        
-        return { 
-            vendor: 'copilot', 
-            family: modelFamily 
-        };
+        return getConfiguredModelSelection().selector;
     }
     
     constructor(
@@ -92,8 +87,8 @@ export class CodebaseAnalyzer {
         const modelSelector = this.getModelSelector();
         const models = await vscode.lm.selectChatModels(modelSelector);
         if (models.length === 0) {
-            const modelName = modelSelector.family || 'unknown';
-            throw new Error(`No Copilot model "${modelName}" available.`);
+            const modelName = modelSelector.id || modelSelector.family || 'unknown';
+            throw new Error(`No language model "${modelName}" available.`);
         }
 
         // Discover files
@@ -385,8 +380,8 @@ export class CodebaseAnalyzer {
         const modelSelector = this.getModelSelector();
         const models = await vscode.lm.selectChatModels(modelSelector);
         if (models.length === 0) {
-            const modelName = modelSelector.family || 'unknown';
-            throw new Error(`No Copilot model "${modelName}" available. Please ensure GitHub Copilot is installed and active, or try a different model in settings.`);
+            const modelName = modelSelector.id || modelSelector.family || 'unknown';
+            throw new Error(`No language model "${modelName}" available. Please ensure the provider extension is installed and active, or try a different model in settings.`);
         }
 
         // Discover files
@@ -588,8 +583,8 @@ export class CodebaseAnalyzer {
         const modelSelector = this.getModelSelector();
         const models = await vscode.lm.selectChatModels(modelSelector);
         if (models.length === 0) {
-            const modelName = modelSelector.family || 'unknown';
-            throw new Error(`No Copilot model "${modelName}" available. Please ensure GitHub Copilot is installed and active.`);
+            const modelName = modelSelector.id || modelSelector.family || 'unknown';
+            throw new Error(`No language model "${modelName}" available. Please ensure the provider extension is installed and active.`);
         }
 
         // Discover files for API reference generation
@@ -961,8 +956,7 @@ export class CodebaseAnalyzer {
         }
 
         // Step 2b: Large file — split into logical chunks and analyze each separately.
-        // Since we use a no-cost model, multiple passes are free and far more accurate
-        // than any truncation or skeleton approach.
+        // Multiple passes are more accurate than any truncation or skeleton approach.
         const chunks = this.splitFileIntoChunks(content, 12000);
 
         if (chunks.length <= 1) {
@@ -1445,8 +1439,8 @@ ${customTemplate}
         const modelSelector = this.getModelSelector();
         const models = await vscode.lm.selectChatModels(modelSelector);
         if (models.length === 0) {
-            const modelName = modelSelector.family || 'unknown';
-            throw new Error(`No Copilot model "${modelName}" available. Please ensure GitHub Copilot is installed and active.`);
+            const modelName = modelSelector.id || modelSelector.family || 'unknown';
+            throw new Error(`No language model "${modelName}" available. Please ensure the provider extension is installed and active.`);
         }
 
         // Resolve full file path
